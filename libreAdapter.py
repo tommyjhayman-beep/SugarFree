@@ -134,15 +134,42 @@ def fetch_glucose_data(auth_headers, patient_id):
     for point in history[-5:]:
         print(f"[{point.get('Timestamp')}] {point.get('Value')} mg/dL")
 
-if __name__ == "__main__":
+def get_current_glucose_and_trend(auth_headers, patient_id):
+    """Extracts real-time values and the historical data arrays."""
+    url = f"{BASE_URL}/llu/connections/{patient_id}/graph"
+    response = requests.get(url, headers=auth_headers)
+    
+    if response.status_code != 200:
+        print(f"Failed to fetch data graph! Status: {response.status_code}")
+        return
+        
+    payload = response.json()
+    connection_data = payload.get("data", {}).get("connection", {})
+    
+    # Extract Real-Time Measurement
+    realtime = connection_data.get("glucoseMeasurement")
+
+    return (realtime.get('Value'), map_trend_arrow(realtime.get('TrendArrow')))
+
+def get_patient_data():
     try:
         token, user_id = get_valid_credentials()
         headers = build_authenticated_headers(token, user_id)
         
         patient_uuid, patient_name = get_patient_id(headers)
-        print(f"Targeting Patient: {patient_name}")
         
-        fetch_glucose_data(headers, patient_uuid)
+        print(f"Targeting Patient: {patient_name}")
+
+        current, trend = get_current_glucose_and_trend(headers, patient_uuid)
+
+        print(f"Current blood sugar: {current} {trend}")
         
     except Exception as error:
         print(f"Script aborted: {error}")
+
+
+if __name__ == "__main__":
+    while(True):
+        get_patient_data()
+        
+        time.sleep(30)
